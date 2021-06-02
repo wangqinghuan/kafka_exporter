@@ -78,6 +78,11 @@ type kafkaOpts struct {
 	uriZookeeper             []string
 	labels                   string
 	metadataRefreshInterval  string
+	serviceName              string
+	kerberosConfigPath       string
+	realm                    string
+	keyTabPath               string
+	userName                 string
 }
 
 // CanReadCertAndKey returns true if the certificate and key files already exists,
@@ -135,6 +140,14 @@ func NewExporter(opts kafkaOpts, topicFilter string, groupFilter string) (*Expor
 		case "scram-sha256":
 			config.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
 			config.Net.SASL.Mechanism = sarama.SASLMechanism(sarama.SASLTypeSCRAMSHA256)
+		case "gssapi":
+			config.Net.SASL.Mechanism = sarama.SASLTypeGSSAPI
+			config.Net.SASL.GSSAPI.ServiceName = opts.serviceName
+			config.Net.SASL.GSSAPI.KerberosConfigPath = opts.kerberosConfigPath
+			config.Net.SASL.GSSAPI.Realm = opts.realm
+			config.Net.SASL.GSSAPI.Username = opts.userName
+			config.Net.SASL.GSSAPI.KeyTabPath = opts.keyTabPath
+			config.Net.SASL.GSSAPI.AuthType = sarama.KRB5_KEYTAB_AUTH
 
 		case "plain":
 		default:
@@ -515,7 +528,12 @@ func main() {
 	kingpin.Flag("sasl.handshake", "Only set this to false if using a non-Kafka SASL proxy.").Default("true").BoolVar(&opts.useSASLHandshake)
 	kingpin.Flag("sasl.username", "SASL user name.").Default("").StringVar(&opts.saslUsername)
 	kingpin.Flag("sasl.password", "SASL user password.").Default("").StringVar(&opts.saslPassword)
-	kingpin.Flag("sasl.mechanism", "The SASL SCRAM SHA algorithm sha256 or sha512 as mechanism").Default("").StringVar(&opts.saslMechanism)
+	kingpin.Flag("sasl.mechanism", "The SASL SCRAM SHA algorithm sha256 or sha512, GSSAPI as mechanism").Default("").StringVar(&opts.saslMechanism)
+	kingpin.Flag("service-name", "SericeName  when GSS-API/Kerberos mechanism is used").Default("").StringVar(&opts.serviceName)
+	kingpin.Flag("kerberos-config-path", "keberos config path  when GSS-API/Kerberos mechanism is used").Default("").StringVar(&opts.kerberosConfigPath)
+	kingpin.Flag("realm", "Realm  when GSS-API mechanism is used").Default("").StringVar(&opts.realm)
+	kingpin.Flag("user-name", "Username  when GSS-API mechanism is used").Default("").StringVar(&opts.userName)
+	kingpin.Flag("keytab-path", "keyTab path  when GSS-API mechanism is used").Default("").StringVar(&opts.keyTabPath)
 	kingpin.Flag("tls.enabled", "Connect using TLS.").Default("false").BoolVar(&opts.useTLS)
 	kingpin.Flag("tls.ca-file", "The optional certificate authority file for TLS client authentication.").Default("").StringVar(&opts.tlsCAFile)
 	kingpin.Flag("tls.cert-file", "The optional certificate file for client authentication.").Default("").StringVar(&opts.tlsCertFile)
